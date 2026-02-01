@@ -1,4 +1,14 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth import get_current_seller
+from app.db_depends import get_async_db
+from app.models import User as UserModel
+from app.repositories.category_repository import CategoryRepository
+from app.repositories.products_repository import ProductsRepository
+from app.schemas import Product as ProductSchema
+from app.schemas import ProductCreate
+from app.services.products_service import ProductsService
 
 router = APIRouter(
     prefix='/products',
@@ -6,49 +16,73 @@ router = APIRouter(
 )
 
 
-@router.get("/")
-async def get_all_products():
-    """
-    Возвращает список всех товаров.
-    """
-    return {"message": "Список всех товаров (заглушка)"}
+def get_product_service(
+        db: AsyncSession = Depends(get_async_db)
+) -> ProductsService:
+    """Создает и возвращает сервис товаров."""
+    product_repository = ProductsRepository(db)
+    category_repository = CategoryRepository(db)
+    return ProductsService(product_repository, category_repository)
 
 
-@router.post("/")
-async def create_product():
-    """
-    Создаёт новый товар.
-    """
-    return {"message": "Товар создан (заглушка)"}
+@router.get('/', response_model=list[ProductSchema])
+async def get_all_products(
+        service: ProductsService = Depends(get_product_service)
+) -> list[ProductSchema]:
+    """Возвращает список всех товаров."""
+    return await service.get_all_products()
 
 
-@router.get("/category/{category_id}")
-async def get_products_by_category(category_id: int):
-    """
-    Возвращает список товаров в указанной категории по её ID.
-    """
-    return {"message": f"Товары в категории {category_id} (заглушка)"}
+@router.post('/', response_model=ProductSchema,
+             status_code=status.HTTP_201_CREATED)
+async def create_product(
+        product: ProductCreate,
+        service: ProductsService = Depends(get_product_service),
+        current_user: UserModel = Depends(get_current_seller)
+) -> ProductSchema:
+    """Создаёт новый товар, привязанный к текущему продавцу."""
+    return await service.create_product(product.model_dump(), current_user.id)
 
 
-@router.get("/{product_id}")
-async def get_product(product_id: int):
-    """
-    Возвращает детальную информацию о товаре по его ID.
-    """
-    return {"message": f"Детали товара {product_id} (заглушка)"}
+@router.get('/category/{category_id}', response_model=list[ProductSchema])
+async def get_products_by_category(
+        category_id: int,
+        service: ProductsService = Depends(get_product_service)
+) -> list[ProductSchema]:
+    """Возвращает список товаров в указанной категории по её ID."""
+    return await service.get_products_by_category_id(category_id)
 
 
-@router.put("/{product_id}")
-async def update_product(product_id: int):
-    """
-    Обновляет товар по его ID.
-    """
-    return {"message": f"Товар {product_id} обновлён (заглушка)"}
+@router.get(
+    '/{product_id}',
+    response_model=ProductSchema,
+    status_code=status.HTTP_200_OK
+)
+async def get_product(
+        product_id: int,
+        service: ProductsService = Depends(get_product_service)
+) -> ProductSchema:
+    """Возвращает детальную информацию о товаре по его ID."""
+    return await service.get_product_by_id(product_id)
 
 
-@router.delete("/{product_id}")
-async def delete_product(product_id: int):
-    """
-    Удаляет товар по его ID.
-    """
-    return {"message": f"Товар {product_id} удалён (заглушка)"}
+@router.put('/{product_id}', response_model=ProductSchema)
+async def update_product(
+        product_id: int,
+        product: ProductCreate,
+        service: ProductsService = Depends(get_product_service),
+        current_user: UserModel = Depends(get_current_seller)
+) -> ProductSchema:
+    """Обновляет товар, если он принадлежит текущему продавцу."""
+    return await service.update_product(product_id, product.model_dump(),
+                                        current_user.id)
+
+
+@router.delete('/{product_id}', response_model=ProductSchema)
+async def delete_product(
+        product_id: int,
+        service: ProductsService = Depends(get_product_service),
+        current_user: UserModel = Depends(get_current_seller)
+) -> ProductSchema:
+    """Выполняет удаление товара, если он принадлежит текущему продавцу."""
+    return await service.delete_product(product_id, current_user.id)

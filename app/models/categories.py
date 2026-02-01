@@ -1,11 +1,12 @@
-from sqlalchemy import String, Boolean, ForeignKey
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.schemas import Category
 
 
 class Category(Base):
+    """Модель категории товаров."""
+
     __tablename__ = 'categories'
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -29,11 +30,3 @@ class Category(Base):
         'Category',
         back_populates='parent',
     )
-
-
-if __name__ == "__main__":
-    from sqlalchemy.schema import CreateTable
-    from app.models.products import Product
-
-    print(CreateTable(Category.__table__))
-    print(CreateTable(Product.__table__))

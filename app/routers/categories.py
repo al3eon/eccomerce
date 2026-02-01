@@ -1,4 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db_depends import get_async_db
+from app.repositories.category_repository import CategoryRepository
+from app.schemas import Category as CategorySchema
+from app.schemas import CategoryCreate
+from app.services.category_service import CategoryService
 
 router = APIRouter(
     prefix='/categories',
@@ -6,33 +13,47 @@ router = APIRouter(
 )
 
 
-@router.get('/')
-async def get_all_categories():
-    """
-    Возвращает список всех категорий товаров.
-    """
-    return {'message': 'Список всех категорий'}
+def get_category_service(
+        db: AsyncSession = Depends(get_async_db)
+) -> CategoryService:
+    """Создает и возвращает сервис категорий."""
+    repository = CategoryRepository(db)
+    return CategoryService(repository)
 
 
-@router.post('/')
-async def create_category():
-    """
-    Создает новую категорию товаров.
-    """
-    return {'message': 'Категория создана'}
+@router.get('/', response_model=list[CategorySchema])
+async def get_all_categories(
+        service: CategoryService = Depends(get_category_service)
+) -> list[CategorySchema]:
+    """Возвращает список всех активных категорий."""
+    return await service.get_all_categories()
 
 
-@router.put('/{category_id}')
-async def update_category(category_id: int):
-    """
-    Обновляет категорию по ее id.
-    """
-    return {'message': f'Категория с ID {category_id} обновлена'}
+@router.post('/', response_model=CategorySchema,
+             status_code=status.HTTP_201_CREATED)
+async def create_category(
+        category: CategoryCreate,
+        service: CategoryService = Depends(get_category_service)
+) -> CategorySchema:
+    """Создает новую категорию товаров."""
+    return await service.create_category(category.model_dump())
 
-@router.delete('/{category_id}')
-async def delete_category(category_id: int):
-    """
-    Удаляет категорию по ее id.
-    """
-    return {'message': f'Категория с ID {category_id} удалена'}
 
+@router.put('/{category_id}', response_model=CategorySchema)
+async def update_category(
+        category_id: int,
+        category: CategoryCreate,
+        service: CategoryService = Depends(get_category_service)
+) -> CategorySchema:
+    """Обновляет категорию по ее id."""
+    return await service.update_category(category_id, category.model_dump())
+
+
+@router.delete('/{category_id}', status_code=status.HTTP_200_OK)
+async def delete_category(
+        category_id: int,
+        service: CategoryService = Depends(get_category_service)
+) -> dict[str, str]:
+    """Удаляет категорию по ее id."""
+    await service.delete_category(category_id)
+    return {'status': 'success', 'message': 'Category marked as inactive'}
