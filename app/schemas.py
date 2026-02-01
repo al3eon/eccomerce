@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -99,3 +100,27 @@ class RefreshTokenRequest(BaseModel):
     """Модель токена для jwt."""
 
     refresh_token: str
+
+
+class ReviewCreate(BaseModel):
+    product_id: Annotated[int, Field(
+        ..., description='ID продукта, к которому относится отзыв'
+    )]
+    comment: Annotated[str | None, Field(None, description='Отзыв к продукту')]
+    grade: Annotated[int, Field(..., gt=0, le=5, description='Оценка товара')]
+
+
+class Review(ReviewCreate):
+    id: Annotated[int, Field(
+        ..., description='Уникальный идентификатор отзыва'
+    )]
+    user_id: Annotated[int, Field(
+        ...,
+        description='Уникальный идентификатор пользователя, оставившего отзыв'
+    )]
+    comment_date: Annotated[datetime, Field(
+        ..., description='Дата и время создания отзыва'
+    )]
+    is_active: Annotated[bool, Field(..., description='Активен ли отзыв')]
+
+    model_config = ConfigDict(from_attributes=True)
