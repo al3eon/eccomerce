@@ -31,3 +31,7 @@ class Product(Base):
         'User',
         back_populates='products',
     )
+    reviews: Mapped['Review'] = relationship(
+        'Review',
+        back_populates='product',
+    )
