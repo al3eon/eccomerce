@@ -1,29 +1,18 @@
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_seller
-from app.db_depends import get_async_db
+from app.db_depends import get_product_service, get_review_service
 from app.models import User as UserModel
-from app.repositories.category_repository import CategoryRepository
-from app.repositories.products_repository import ProductsRepository
 from app.schemas import Product as ProductSchema
 from app.schemas import ProductCreate
+from app.schemas import Review as ReviewSchema
 from app.services.products_service import ProductsService
+from app.services.reviews_service import ReviewsService
 
 router = APIRouter(
     prefix='/products',
     tags=['products'],
 )
-
-
-def get_product_service(
-        db: AsyncSession = Depends(get_async_db)
-) -> ProductsService:
-    """Создает и возвращает сервис товаров."""
-    product_repository = ProductsRepository(db)
-    category_repository = CategoryRepository(db)
-    return ProductsService(product_repository, category_repository)
-
 
 @router.get('/', response_model=list[ProductSchema])
 async def get_all_products(
@@ -50,7 +39,7 @@ async def get_products_by_category(
         service: ProductsService = Depends(get_product_service)
 ) -> list[ProductSchema]:
     """Возвращает список товаров в указанной категории по её ID."""
-    return await service.get_products_by_category_id(category_id)
+    return await service.get_products_by_category(category_id)
 
 
 @router.get(
@@ -64,6 +53,15 @@ async def get_product(
 ) -> ProductSchema:
     """Возвращает детальную информацию о товаре по его ID."""
     return await service.get_product_by_id(product_id)
+
+
+@router.get('/{product_id}/reviews', response_model=list[ReviewSchema])
+async def get_review(
+        product_id: int,
+        service: ReviewsService = Depends(get_review_service)
+) -> list[ReviewSchema]:
+    """Возвращает детальную информацию об отзыве по его ID."""
+    return await service.get_reviews_by_product(product_id)
 
 
 @router.put('/{product_id}', response_model=ProductSchema)

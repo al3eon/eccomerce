@@ -26,7 +26,7 @@ class ProductsService(BaseService[Product]):
         await self._validate_category_exists(product.category_id)
         return product
 
-    async def get_products_by_category_id(
+    async def get_products_by_category(
             self, category_id: int
     ) -> list[Product]:
         """Получить товары по id категории."""

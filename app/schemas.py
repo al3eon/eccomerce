@@ -68,7 +68,7 @@ class Product(ProductCreate):
         ..., description='Уникальный идентификатор товара'
     )]
     is_active: Annotated[bool, Field(..., description='Активность товара')]
-
+    rating: Annotated[Decimal, Field(..., description='Рейтинг товара')]
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -103,6 +103,8 @@ class RefreshTokenRequest(BaseModel):
 
 
 class ReviewCreate(BaseModel):
+    """Модель создания отзыва."""
+
     product_id: Annotated[int, Field(
         ..., description='ID продукта, к которому относится отзыв'
     )]
@@ -111,6 +113,8 @@ class ReviewCreate(BaseModel):
 
 
 class Review(ReviewCreate):
+    """Модель отзыва."""
+
     id: Annotated[int, Field(
         ..., description='Уникальный идентификатор отзыва'
     )]

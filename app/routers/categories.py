@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db_depends import get_async_db
-from app.repositories.category_repository import CategoryRepository
+from app.db_depends import get_category_service
 from app.schemas import Category as CategorySchema
 from app.schemas import CategoryCreate
 from app.services.category_service import CategoryService
@@ -11,14 +9,6 @@ router = APIRouter(
     prefix='/categories',
     tags=['categories'],
 )
-
-
-def get_category_service(
-        db: AsyncSession = Depends(get_async_db)
-) -> CategoryService:
-    """Создает и возвращает сервис категорий."""
-    repository = CategoryRepository(db)
-    return CategoryService(repository)
 
 
 @router.get('/', response_model=list[CategorySchema])

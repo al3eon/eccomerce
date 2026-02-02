@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Awaitable, Callable, Literal
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -85,10 +86,21 @@ async def get_current_user(
     return user
 
 
-async def get_current_seller(
-        current_user: UserModel = Depends(get_current_user)) -> UserModel:
-    """Проверяет, что пользователь имеет роль 'seller'."""
-    if current_user.role != "seller":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail='Only sellers can perform this action')
-    return current_user
+def require_role(
+        required_role: Literal['seller', 'buyer', 'admin']
+)-> Callable[[UserModel], Awaitable[UserModel]]:
+    """Фабрика dependency для проверки роли пользователя."""
+    async def role_checker(
+            current_user: UserModel = Depends(get_current_user),
+    ) -> UserModel:
+        if current_user.role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f'Only {required_role}s can perform this action'
+            )
+        return current_user
+    return role_checker
+
+get_current_seller = require_role('seller')
+get_current_buyer = require_role('buyer')
+get_current_admin = require_role('admin')
