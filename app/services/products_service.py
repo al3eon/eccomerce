@@ -25,7 +25,8 @@ class ProductsService(BaseService[Product]):
         min_price: float | None = None,
         max_price: float | None = None,
         in_stock: bool | None = None,
-        seller_id: int | None = None
+        seller_id: int | None = None,
+        search_prod: str | None = None,
     ) -> dict[str, any]:
         """Получить список товаров с фильтрами и пагинацией."""
         if min_price is not None and max_price is not None and min_price > max_price:
@@ -38,7 +39,8 @@ class ProductsService(BaseService[Product]):
             'min_price': Decimal(str(min_price)) if min_price else None,
             'max_price': Decimal(str(max_price)) if max_price else None,
             'in_stock': in_stock,
-            'seller_id': seller_id
+            'seller_id': seller_id,
+            'search_prod': search_prod,
         }
 
         total = await self.repo.get_count_products(filters)

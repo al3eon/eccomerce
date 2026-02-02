@@ -25,6 +25,8 @@ async def get_all_products(
         max_price: float | None = Query(None, ge=0, description="Максимальная цена"),
         in_stock: bool | None = Query(None, description="Только в наличии"),
         seller_id: int | None = Query(None, description="ID продавца"),
+        search_prod: str | None = Query(None, min_length=1,
+                                        description="Поиск по названию товара"),
         service: ProductsService = Depends(get_product_service)
 ) -> ProductList:
     """Возвращает список всех товаров с фильтрацией."""
@@ -35,7 +37,8 @@ async def get_all_products(
         min_price=min_price,
         max_price=max_price,
         in_stock=in_stock,
-        seller_id=seller_id
+        seller_id=seller_id,
+        search_prod=search_prod,
     )
 
 
