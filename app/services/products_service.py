@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi import HTTPException, status
 
 from app.models import Product
@@ -16,9 +17,38 @@ class ProductsService(BaseService[Product]):
         super().__init__(product_repo)
         self.category_repo = category_repo
 
-    async def get_all_products(self) -> list[Product]:
-        """Получить весь список товаров."""
-        return await self.get_all()
+    async def get_all_products(
+        self,
+        page: int,
+        page_size: int,
+        category_id: int | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None,
+        in_stock: bool | None = None,
+        seller_id: int | None = None
+    ) -> dict[str, any]:
+        """Получить список товаров с фильтрами и пагинацией."""
+        if min_price is not None and max_price is not None and min_price > max_price:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail='min_price не может быть больше max_price'
+            )
+        filters = {
+            'category_id': category_id,
+            'min_price': Decimal(str(min_price)) if min_price else None,
+            'max_price': Decimal(str(max_price)) if max_price else None,
+            'in_stock': in_stock,
+            'seller_id': seller_id
+        }
+
+        total = await self.repo.get_count_products(filters)
+        products = await self.repo.get_products_paginate(page, page_size, filters)
+        return {
+            'items': products,
+            'total': total,
+            'page': page,
+            'page_size': page_size
+        }
 
     async def get_product_by_id(self, product_id: int) -> Product:
         """Получить товар по его id."""

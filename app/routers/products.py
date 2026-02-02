@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Query
 
 from app.auth import get_current_seller
 from app.db_depends import get_product_service, get_review_service
 from app.models import User as UserModel
 from app.schemas import Product as ProductSchema
-from app.schemas import ProductCreate
+from app.schemas import ProductCreate, ProductList
 from app.schemas import Review as ReviewSchema
 from app.services.products_service import ProductsService
 from app.services.reviews_service import ReviewsService
@@ -14,12 +14,29 @@ router = APIRouter(
     tags=['products'],
 )
 
-@router.get('/', response_model=list[ProductSchema])
+@router.get('/', response_model=ProductList)
+
+@router.get('/', response_model=ProductList)
 async def get_all_products(
+        page: int = Query(1, ge=1),
+        page_size: int = Query(20, ge=1, le=100),
+        category_id: int | None = Query(None, description="ID категории"),
+        min_price: float | None = Query(None, ge=0, description="Минимальная цена"),
+        max_price: float | None = Query(None, ge=0, description="Максимальная цена"),
+        in_stock: bool | None = Query(None, description="Только в наличии"),
+        seller_id: int | None = Query(None, description="ID продавца"),
         service: ProductsService = Depends(get_product_service)
-) -> list[ProductSchema]:
-    """Возвращает список всех товаров."""
-    return await service.get_all_products()
+) -> ProductList:
+    """Возвращает список всех товаров с фильтрацией."""
+    return await service.get_all_products(
+        page=page,
+        page_size=page_size,
+        category_id=category_id,
+        min_price=min_price,
+        max_price=max_price,
+        in_stock=in_stock,
+        seller_id=seller_id
+    )
 
 
 @router.post('/', response_model=ProductSchema,
