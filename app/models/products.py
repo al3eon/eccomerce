@@ -21,7 +21,7 @@ class Product(Base):
     stock: Mapped[int] = mapped_column(Integer, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     rating: Mapped[Decimal] = mapped_column(
-        Numeric(3,2), default=Decimal('0.0'), server_default=text('0'))
+        Numeric(3, 2), default=Decimal('0.0'), server_default=text('0'))
     category_id: Mapped[int] = mapped_column(ForeignKey('categories.id'),
                                              nullable=False)
     seller_id: Mapped[int] = mapped_column(ForeignKey('users.id'),
@@ -51,6 +51,15 @@ class Product(Base):
     reviews: Mapped['Review'] = relationship(
         'Review',
         back_populates='product',
+    )
+    cart_items: Mapped[list['CartItem']] = relationship(
+        'CartItem',
+        back_populates='product',
+        cascade='all, delete-orphan',
+    )
+    order_items: Mapped[list['OrderItem']] = relationship(
+        'OrderItem',
+        back_populates='product'
     )
 
     __table_args__ = (
