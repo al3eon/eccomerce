@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, UploadFile, File, Form, HTTPException
 
 from app.auth import get_current_seller
 from app.db_depends import get_product_service, get_review_service
@@ -15,14 +15,15 @@ router = APIRouter(
 )
 
 @router.get('/', response_model=ProductList)
-
 @router.get('/', response_model=ProductList)
 async def get_all_products(
         page: int = Query(1, ge=1),
         page_size: int = Query(20, ge=1, le=100),
         category_id: int | None = Query(None, description="ID категории"),
-        min_price: float | None = Query(None, ge=0, description="Минимальная цена"),
-        max_price: float | None = Query(None, ge=0, description="Максимальная цена"),
+        min_price: float | None = Query(None, ge=0,
+                                        description="Минимальная цена"),
+        max_price: float | None = Query(None, ge=0,
+                                        description="Максимальная цена"),
         in_stock: bool | None = Query(None, description="Только в наличии"),
         seller_id: int | None = Query(None, description="ID продавца"),
         search_prod: str | None = Query(None, min_length=1,
@@ -45,12 +46,15 @@ async def get_all_products(
 @router.post('/', response_model=ProductSchema,
              status_code=status.HTTP_201_CREATED)
 async def create_product(
-        product: ProductCreate,
+        product: ProductCreate = Depends(ProductCreate.as_form),
+        image: UploadFile | None = File(None),
         service: ProductsService = Depends(get_product_service),
         current_user: UserModel = Depends(get_current_seller)
 ) -> ProductSchema:
     """Создаёт новый товар, привязанный к текущему продавцу."""
-    return await service.create_product(product.model_dump(), current_user.id)
+    return await service.create_product(
+        product.model_dump(), current_user.id, image=image
+    )
 
 
 @router.get('/category/{category_id}', response_model=list[ProductSchema])
@@ -87,13 +91,14 @@ async def get_review(
 @router.put('/{product_id}', response_model=ProductSchema)
 async def update_product(
         product_id: int,
-        product: ProductCreate,
+        product: ProductCreate = Depends(ProductCreate.as_form),
         service: ProductsService = Depends(get_product_service),
-        current_user: UserModel = Depends(get_current_seller)
+        current_user: UserModel = Depends(get_current_seller),
+        image: UploadFile | None = File(None),
 ) -> ProductSchema:
     """Обновляет товар, если он принадлежит текущему продавцу."""
     return await service.update_product(product_id, product.model_dump(),
-                                        current_user.id)
+                                        current_user.id, image)
 
 
 @router.delete('/{product_id}', response_model=ProductSchema)

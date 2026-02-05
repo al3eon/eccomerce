@@ -1,11 +1,14 @@
+import uuid
 from decimal import Decimal
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile, File
+from pathlib import Path
 
 from app.models import Product
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.products_repository import ProductsRepository
 
 from .base import BaseService
+from app import constants
 
 
 class ProductsService(BaseService[Product]):
@@ -66,15 +69,20 @@ class ProductsService(BaseService[Product]):
         return await self.repo.get_products_by_category_id(category_id)
 
     async def create_product(
-            self, product_data: dict, user_id: int
+            self, product_data: dict, user_id: int,
+            image: UploadFile | None
     ) -> Product:
         """Создать товар."""
         await self._validate_category_exists(product_data['category_id'])
+        image_url = await self.save_product_image(image) if image else None
         product_data['seller_id'] = user_id
+        product_data['image_url'] = image_url
         return await self.create(product_data)
 
-    async def update_product(self, product_id: int, product_data: dict,
-                             user_id: int) -> Product:
+    async def update_product(
+            self, product_id: int, product_data: dict, user_id: int,
+            image: UploadFile | None = File(None)
+    ) -> Product:
         """Обновить товар."""
         product = await self.get_or_404(product_id, 'Product not found')
         self._check_ownership(product, user_id)
@@ -82,12 +90,20 @@ class ProductsService(BaseService[Product]):
         if 'category_id' in product_data:
             await self._validate_category_exists(product_data['category_id'])
 
+        if image:
+            if product.image_url:
+                self.remove_product_image(product.image_url)
+
+            new_image_url = await self.save_product_image(image)
+            product_data['image_url'] = new_image_url
+
         return await self.update_and_return(product_id, product_data)
 
     async def delete_product(self, product_id: int, user_id: int) -> Product:
         """Мягко удалить товар."""
         product = await self.get_or_404(product_id, 'Product not found')
         self._check_ownership(product, user_id)
+        self.remove_product_image(product.image_url)
         await self.repo.soft_delete(product_id)
 
         return product
@@ -108,3 +124,38 @@ class ProductsService(BaseService[Product]):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail='You can only modify your own products'
             )
+
+    async def save_product_image(self, file: UploadFile) -> str:
+        """
+        Сохраняет изображение товара и возвращает относительный URL.
+        """
+        if file.content_type not in constants.ALLOWED_IMAGE_TYPES:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                'Only JPG, PNG or WebP images are allowed'
+            )
+
+        content = await file.read()
+        if len(content) > constants.MAX_IMAGE_SIZE:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                'Image is too large'
+            )
+
+        extension = Path(file.filename or '').suffix.lower() or '.jpg'
+        file_name = f'{uuid.uuid4()}{extension}'
+        file_path = constants.MEDIA_ROOT / file_name
+        file_path.write_bytes(content)
+
+        return f'/media/products/{file_name}'
+
+    def remove_product_image(self, url: str | None) -> None:
+        """
+        Удаляет файл изображения, если он существует.
+        """
+        if not url:
+            return
+        relative_path = url.lstrip('/')
+        file_path = constants.BASE_DIR / relative_path
+        if file_path.exists():
+            file_path.unlink()
